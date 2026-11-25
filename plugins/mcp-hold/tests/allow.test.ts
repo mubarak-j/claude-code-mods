@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
-import { allow, allowCommand, forget } from '../hooks/register.ts'
-import { fake } from './fake.ts'
+import { allow, allowCommand, forget } from '../hooks/register'
+import { fake } from './fake'
 
 const ALWAYS = 'Always in this project'
 const SESSION = 'This session only'

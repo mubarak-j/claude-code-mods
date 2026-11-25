@@ -1,5 +1,5 @@
 import type { EngineInterface } from 'claude-code'
-import { resetHeld } from '../hooks/register.ts'
+import { resetHeld } from '../hooks/register'
 
 // A stand-in for the engine's `$`, holding only the nouns mcp-hold uses.
 export type Fake = {

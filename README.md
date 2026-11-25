@@ -24,4 +24,4 @@ claude plugin install mcp-hold --marketplace mubarak-j/claude-code-mods
 
 ## Develop a mod
 
-Each mod lives in `plugins/<name>/`. To load a mod from its folder, run `claude --plugin-dir plugins/<name>`. To run its tests, run `claude plugin test plugins/<name>`. To check its manifest and hooks module, run `claude plugin validate plugins/<name>`.
+Each mod lives in `plugins/<name>/`. To install the pinned Claude Code CLI, run `npm ci`. To check and test every mod with it, run `npm run validate` and `npm test`. CI runs the same commands on each pull request. To load a mod from its folder, run `claude --plugin-dir plugins/<name>`. To run its tests, run `claude plugin test plugins/<name>`. To check its manifest and hooks module, run `claude plugin validate plugins/<name>`.

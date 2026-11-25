@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
-import { allowTool, shouldPass, toolDescription } from '../hooks/register.ts'
-import { fake } from './fake.ts'
+import { allowTool, shouldPass, toolDescription } from '../hooks/register'
+import { fake } from './fake'
 
 test('the tool runs the scope dialog', async () => {
   const f = fake({ git: '/repo', answers: ['This session only'] })

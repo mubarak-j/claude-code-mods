@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
-import { shouldPass } from '../hooks/register.ts'
-import { fake } from './fake.ts'
+import { shouldPass } from '../hooks/register'
+import { fake } from './fake'
 
 test('holds an engine-raised server', async () => {
   const f = fake({ git: '/repo' })
