@@ -9,11 +9,14 @@ export type Fake = {
   status: (string | undefined)[]
   asked: { question: string; options: readonly string[] }[]
   connected: string[]
+  gitCwd: (string | undefined)[]
   tools: { name: string; description: string }[]
 }
 
 export function fake(opts: {
   git?: string | Error
+  gitOutput?: string
+  root?: string
   store?: Record<string, unknown>
   answers?: (string | Error)[]
   refuse?: string
@@ -25,6 +28,7 @@ export function fake(opts: {
     status: [],
     asked: [],
     connected: [],
+    gitCwd: [],
     tools: [],
     $: undefined as unknown as EngineInterface,
   }
@@ -41,11 +45,15 @@ export function fake(opts: {
       set: async (ref: { key: string }, v: unknown) => (f.state.set(ref.key, v), { isSet: true, version: 1 }),
     },
     process: {
-      run: async () => opts.git instanceof Error ? Promise.reject(opts.git) : opts.git === undefined
-        ? { exitCode: 128, stdout: '', stderr: 'not a git repository' }
-        : { exitCode: 0, stdout: `${opts.git}\n`, stderr: '' },
+      // Answers `git rev-parse --git-common-dir`: the main checkout's .git, also from a worktree.
+      run: async (_argv: readonly string[], init?: { cwd?: string }) => {
+        f.gitCwd.push(init?.cwd)
+        if (opts.git instanceof Error) throw opts.git
+        if (opts.git === undefined) return { exitCode: 128, stdout: '', stderr: 'not a git repository' }
+        return { exitCode: 0, stdout: `${opts.gitOutput ?? `${opts.git}/.git`}\n`, stderr: '' }
+      },
     },
-    session: { root: async () => '/start' },
+    session: { root: async () => opts.root ?? '/start' },
     ui: {
       status: (t: string | undefined) => void f.status.push(t),
       ask: async (question: string, o?: readonly string[] | { options?: readonly string[] }) => {

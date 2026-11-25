@@ -6,9 +6,16 @@ const SESSION_ALLOWED = { plugin: 'mcp-hold', key: 'sessionAllowed' } as const
 // Servers that are part of Claude Code itself. The hook cannot tell them apart by provider.
 export const BUILT_IN = ['claude-artifacts']
 
+// The main checkout's folder, so every worktree of a repository shares one key.
+// A bare repository has no checkout, so its git folder is the key.
 export async function projectKey($: EngineInterface): Promise<string> {
-  const git = await $.process.run(['git', 'rev-parse', '--show-toplevel']).catch(() => undefined)
-  return git?.exitCode === 0 ? git.stdout.trim() : $.session.root()
+  const root = await $.session.root()
+  const git = await $.process
+    .run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root })
+    .catch(() => undefined)
+  if (git?.exitCode !== 0) return root
+  const common = git.stdout.trim()
+  return common.endsWith('/.git') ? common.slice(0, -'/.git'.length) : common
 }
 
 export const storeKey = (project: string) => `allow:${project}`

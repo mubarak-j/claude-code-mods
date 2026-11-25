@@ -47,3 +47,19 @@ test('parallel holds keep every server', async () => {
   expect([...(f.state.get('held') as string[])].sort()).toEqual([...names].sort())
   expect(f.status.at(-1)).toBe('mcp: 6 held')
 })
+
+test('a worktree shares the allows of its main checkout', async () => {
+  const f = fake({ git: '/repo', root: '/repo-wt', gitOutput: '/repo/.git', store: { 'allow:/repo': ['pal'] } })
+  expect(await shouldPass(f.$, 'pal', 'engine')).toBe(true)
+})
+
+test('git runs in the session root', async () => {
+  const f = fake({ git: '/repo', root: '/repo/sub' })
+  await shouldPass(f.$, 'pal', 'engine')
+  expect(f.gitCwd).toEqual(['/repo/sub'])
+})
+
+test('a bare repository is its own key', async () => {
+  const f = fake({ git: '/x', gitOutput: '/x/repo.git', store: { 'allow:/x/repo.git': ['pal'] } })
+  expect(await shouldPass(f.$, 'pal', 'engine')).toBe(true)
+})
