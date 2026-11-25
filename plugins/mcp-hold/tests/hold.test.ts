@@ -39,3 +39,11 @@ test('uses the session root when git cannot start', async () => {
   const f = fake({ git: new Error('git not found'), store: { 'allow:/start': ['pal'] } })
   expect(await shouldPass(f.$, 'pal', 'engine')).toBe(true)
 })
+
+test('parallel holds keep every server', async () => {
+  const f = fake({ git: '/repo' })
+  const names = ['pal', 'aws-mcp', 'ibotta-mcp', 'playwright', 'open-design', 'plugin:slack:slack']
+  await Promise.all(names.map(n => shouldPass(f.$, n, 'engine')))
+  expect([...(f.state.get('held') as string[])].sort()).toEqual([...names].sort())
+  expect(f.status.at(-1)).toBe('mcp: 6 held')
+})

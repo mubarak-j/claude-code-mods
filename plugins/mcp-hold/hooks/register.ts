@@ -1,4 +1,4 @@
-import type { EngineInterface, PromptComposeSection, Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
 const HELD = { plugin: 'mcp-hold', key: 'held' } as const
 const SESSION_ALLOWED = { plugin: 'mcp-hold', key: 'sessionAllowed' } as const
@@ -20,16 +20,47 @@ export async function isAllowed($: EngineInterface, server: string): Promise<boo
   return stored?.includes(server) ?? false
 }
 
-async function setHeld($: EngineInterface, held: string[]) {
-  await $.state.set(HELD, held)
-  $.ui.status(held.length ? `mcp: ${held.length} held` : undefined)
+// The tool description carries the held names, because a managed plugin can skip prompt.compose hooks.
+export function toolDescription(held: string[]): string {
+  const now = held.length ? `These MCP servers are held by mcp-hold: ${held.join(', ')}.` : 'No MCP server is held now.'
+  return `${now} If a task needs a held server, call this tool with its name. The user picks the scope in a dialog or cancels.`
+}
+
+async function registerTool($: EngineInterface, held: string[]) {
+  await $.tool
+    .register({
+      name: 'allow_server',
+      description: toolDescription(held),
+      inputSchema: { type: 'object', properties: { server: { type: 'string', description: 'The held server name' } }, required: ['server'] },
+      isDeferred: false,
+    })
+    .catch(() => undefined) // Rejects until session.start, which registers it again.
+}
+
+// Connect hooks run in parallel and $.state.get reads one snapshot per dispatch,
+// so the module keeps the live list and changes it synchronously. $.state mirrors it.
+let held: string[] | undefined
+
+async function updateHeld($: EngineInterface, change: (held: string[]) => string[]) {
+  const seed = (await $.state.get(HELD)).value ?? []
+  held = change(held ?? seed)
+  const now = held
+  await $.state.set(HELD, now)
+  $.ui.status(now.length ? `mcp: ${now.length} held` : undefined)
+  await registerTool($, now)
+}
+
+const heldList = async ($: EngineInterface) => held ?? (await $.state.get(HELD)).value ?? []
+
+// Test-only: starts each test from an empty module list.
+export function resetHeld() {
+  held = undefined
 }
 
 // True lets the connect through. Only the engine's own raises are held.
 export async function shouldPass($: EngineInterface, server: string, origin: string): Promise<boolean> {
   if (origin !== 'engine' || (await isAllowed($, server))) return true
-  const held = (await $.state.get(HELD)).value ?? []
-  await setHeld($, held.includes(server) ? held : [...held, server])
+  await updateHeld($, h => (h.includes(server) ? h : [...h, server]))
   return false
 }
 
@@ -48,7 +79,7 @@ export async function allow($: EngineInterface, server: string): Promise<string>
 
   const sessionAllowed = (await $.state.get(SESSION_ALLOWED)).value ?? []
   await $.state.set(SESSION_ALLOWED, [...new Set([...sessionAllowed, server])])
-  await setHeld($, ((await $.state.get(HELD)).value ?? []).filter(h => h !== server))
+  await updateHeld($, h => h.filter(x => x !== server))
   if (scope === SESSION) return `${server} connected for this session.`
 
   const key = storeKey(await projectKey($))
@@ -58,7 +89,7 @@ export async function allow($: EngineInterface, server: string): Promise<string>
 }
 
 export async function allowCommand($: EngineInterface, args: string): Promise<string> {
-  const held = (await $.state.get(HELD)).value ?? []
+  const held = await heldList($)
   let name = args.trim()
   if (!name) {
     if (held.length === 0) return 'No MCP servers are held.'
@@ -85,37 +116,17 @@ export async function allowTool($: EngineInterface, input: { server?: unknown })
   return server ? allow($, server) : 'allow_server needs a server name.'
 }
 
-export async function heldSection($: EngineInterface): Promise<PromptComposeSection | undefined> {
-  const held = (await $.state.get(HELD)).value ?? []
-  if (held.length === 0) return undefined
-  return {
-    id: 'mcp-hold:held',
-    scope: 'session',
-    text: `These MCP servers are held by mcp-hold: ${held.join(', ')}. If a task needs one, call allow_server with its name. The user approves it.`,
-  }
-}
-
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await $.command.register({ name: 'mcp-allow', description: 'Connect an MCP server that mcp-hold holds', argumentHint: '[server]' })
     await $.command.register({ name: 'mcp-forget', description: 'Clear the MCP servers mcp-hold allows in this project' })
-    await $.tool.register({
-      name: 'allow_server',
-      description: 'Connect an MCP server that mcp-hold holds. The user picks the scope in a dialog or cancels.',
-      inputSchema: { type: 'object', properties: { server: { type: 'string', description: 'The held server name' } }, required: ['server'] },
-      isDeferred: false,
-    })
+    await registerTool($, await heldList($))
     return started
   })
   on('tool.run', { tool: 'mcp__mcp-hold__allow_server' }, async ($, e) => ({ result: await allowTool($, { server: e.server }) })).catch(
     () => ({ result: 'mcp-hold failed to allow the server.' }),
   )
-  on('prompt.compose', async ($, e, next) => {
-    const composed = await next(e)
-    const section = await heldSection($)
-    return section ? { ...composed, sections: [...composed.sections, section] } : composed
-  })
   on('command.run', { command: 'mcp-allow' }, async ($, e) => ({ text: await allowCommand($, e.args) }))
   on('command.run', { command: 'mcp-forget' }, async $ => ({ text: await forget($) }))
 
