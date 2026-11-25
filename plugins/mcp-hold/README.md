@@ -8,7 +8,7 @@ Each connected MCP server adds its tool descriptions to every request. Servers t
 
 ## How it works
 
-At session start, Claude Code asks each plugin before it connects an MCP server. The mod answers with a hold for each server. The `/mcp` screen then shows the server as "held by mcp-hold". The status line shows the count, for example `mcp: 3 held`.
+At session start, Claude Code asks each plugin before it connects an MCP server. The mod answers with a hold for each server. The `/mcp` screen then shows the server as "held by mcp-hold".
 
 The mod holds user servers, project servers and servers that other plugins ship. It does not hold the built-in server `claude-artifacts`. Nobody tested claude.ai account servers yet.
 

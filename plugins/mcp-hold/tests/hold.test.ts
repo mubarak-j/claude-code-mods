@@ -28,11 +28,11 @@ test('uses the session root outside git', async () => {
   expect(await shouldPass(f.$, 'pal', 'engine')).toBe(true)
 })
 
-test('shows the held count', async () => {
+test('leaves the status line alone', async () => {
   const f = fake({ git: '/repo' })
   await shouldPass(f.$, 'pal', 'engine')
   await shouldPass(f.$, 'pal', 'engine')
-  expect(f.status.at(-1)).toBe('mcp: 1 held')
+  expect(f.status).toEqual([])
 })
 
 test('uses the session root when git cannot start', async () => {
@@ -45,7 +45,6 @@ test('parallel holds keep every server', async () => {
   const names = ['pal', 'aws-mcp', 'ibotta-mcp', 'playwright', 'open-design', 'plugin:slack:slack']
   await Promise.all(names.map(n => shouldPass(f.$, n, 'engine')))
   expect([...(f.state.get('held') as string[])].sort()).toEqual([...names].sort())
-  expect(f.status.at(-1)).toBe('mcp: 6 held')
 })
 
 test('a worktree shares the allows of its main checkout', async () => {

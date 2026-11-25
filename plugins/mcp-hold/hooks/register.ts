@@ -53,7 +53,6 @@ async function updateHeld($: EngineInterface, change: (held: string[]) => string
   held = change(held ?? seed)
   const now = held
   await $.state.set(HELD, now)
-  $.ui.status(now.length ? `mcp: ${now.length} held` : undefined)
   await registerTool($, now)
 }
 
