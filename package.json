@@ -7,6 +7,6 @@
     "test": "for p in plugins/*/; do claude plugin test \"$p\" || exit 1; done"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-code": "2.1.329"
+    "@anthropic-ai/claude-code": "2.1.330"
   }
 }
