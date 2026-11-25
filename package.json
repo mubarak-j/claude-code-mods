@@ -1,0 +1,12 @@
+{
+  "name": "claude-code-mods",
+  "private": true,
+  "description": "Dev tooling for the claude-code-mods marketplace. Pins the Claude Code CLI that validates and tests the mods.",
+  "scripts": {
+    "validate": "claude plugin validate . && for p in plugins/*/; do claude plugin validate \"$p\" || exit 1; done",
+    "test": "for p in plugins/*/; do claude plugin test \"$p\" || exit 1; done"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.329"
+  }
+}

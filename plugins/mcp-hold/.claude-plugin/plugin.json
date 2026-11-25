@@ -1,0 +1,7 @@
+{
+  "name": "mcp-hold",
+  "version": "0.1.0",
+  "description": "Holds every MCP server at session start; allow one per session or per project with /mcp-allow, or let Claude ask.",
+  "license": "Apache-2.0",
+  "types": "./types/index.d.ts"
+}
