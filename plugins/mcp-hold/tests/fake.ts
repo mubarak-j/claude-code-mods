@@ -11,7 +11,7 @@ export type Fake = {
 }
 
 export function fake(opts: {
-  git?: string
+  git?: string | Error
   store?: Record<string, unknown>
   answers?: (string | Error)[]
   refuse?: string
@@ -37,7 +37,7 @@ export function fake(opts: {
       set: async (ref: { key: string }, v: unknown) => (f.state.set(ref.key, v), { isSet: true, version: 1 }),
     },
     process: {
-      run: async () => opts.git === undefined
+      run: async () => opts.git instanceof Error ? Promise.reject(opts.git) : opts.git === undefined
         ? { exitCode: 128, stdout: '', stderr: 'not a git repository' }
         : { exitCode: 0, stdout: `${opts.git}\n`, stderr: '' },
     },

@@ -34,3 +34,8 @@ test('shows the held count', async () => {
   await shouldPass(f.$, 'pal', 'engine')
   expect(f.status.at(-1)).toBe('mcp: 1 held')
 })
+
+test('uses the session root when git cannot start', async () => {
+  const f = fake({ git: new Error('git not found'), store: { 'allow:/start': ['pal'] } })
+  expect(await shouldPass(f.$, 'pal', 'engine')).toBe(true)
+})

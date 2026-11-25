@@ -1,0 +1,11 @@
+{
+  "name": "claude-code-mods",
+  "owner": { "name": "mubarak-j" },
+  "plugins": [
+    {
+      "name": "mcp-hold",
+      "source": "./plugins/mcp-hold",
+      "description": "Holds every MCP server at session start; allow one per session or per project."
+    }
+  ]
+}

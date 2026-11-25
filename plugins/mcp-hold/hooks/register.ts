@@ -7,8 +7,8 @@ const SESSION_ALLOWED = { plugin: 'mcp-hold', key: 'sessionAllowed' } as const
 export const BUILT_IN = ['claude-artifacts']
 
 export async function projectKey($: EngineInterface): Promise<string> {
-  const git = await $.process.run(['git', 'rev-parse', '--show-toplevel'])
-  return git.exitCode === 0 ? git.stdout.trim() : $.session.root()
+  const git = await $.process.run(['git', 'rev-parse', '--show-toplevel']).catch(() => undefined)
+  return git?.exitCode === 0 ? git.stdout.trim() : $.session.root()
 }
 
 export const storeKey = (project: string) => `allow:${project}`
@@ -108,7 +108,9 @@ export const register: Register = on => {
     })
     return started
   })
-  on('tool.run', { tool: 'mcp__mcp-hold__allow_server' }, async ($, e) => ({ result: await allowTool($, { server: e.server }) }))
+  on('tool.run', { tool: 'mcp__mcp-hold__allow_server' }, async ($, e) => ({ result: await allowTool($, { server: e.server }) })).catch(
+    () => ({ result: 'mcp-hold failed to allow the server.' }),
+  )
   on('prompt.compose', async ($, e, next) => {
     const composed = await next(e)
     const section = await heldSection($)
@@ -119,5 +121,5 @@ export const register: Register = on => {
 
   on('mcp.connect', async ($, e, next) =>
     (await shouldPass($, e.server, next.origin.plugin)) ? next(e) : { deny: `${e.server} held by mcp-hold` },
-  )
+  ).catch(($, e, next) => next(e)) // A failure in the mod lets the server connect instead of blocking it.
 }
