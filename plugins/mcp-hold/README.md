@@ -43,11 +43,17 @@ To clear the stored allows for the current project, run `/mcp-forget`. The serve
 
 ## Install
 
-At the prompt of a Claude Code terminal session, run:
+1. Add the marketplace. At the prompt of a Claude Code terminal session, run:
 
-```text
-/plugin install mcp-hold --marketplace mubarak-j/claude-code-mods
-```
+   ```text
+   /plugin marketplace add mubarak-j/claude-code-mods
+   ```
+
+2. Install the mod, then pick a scope:
+
+   ```text
+   /plugin install mcp-hold@claude-code-mods
+   ```
 
 ## Develop
 

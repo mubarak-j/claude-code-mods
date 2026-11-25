@@ -10,16 +10,23 @@ A Claude Code plugin marketplace for mods. A mod is a plugin built on the Claude
 
 ## Install
 
-At the prompt of a Claude Code terminal session, run:
+1. Add the marketplace. At the prompt of a Claude Code terminal session, run:
 
-```text
-/plugin install mcp-hold --marketplace mubarak-j/claude-code-mods
-```
+   ```text
+   /plugin marketplace add mubarak-j/claude-code-mods
+   ```
 
-Answer `y` to add the marketplace, then pick a scope. From a shell, run:
+2. Install a mod from it, for example `mcp-hold`, then pick a scope:
+
+   ```text
+   /plugin install mcp-hold@claude-code-mods
+   ```
+
+From a shell, run the same two steps:
 
 ```bash
-claude plugin install mcp-hold --marketplace mubarak-j/claude-code-mods
+claude plugin marketplace add mubarak-j/claude-code-mods
+claude plugin install mcp-hold@claude-code-mods
 ```
 
 ## Develop a mod
