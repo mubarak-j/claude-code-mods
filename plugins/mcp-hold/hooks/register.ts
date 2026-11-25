@@ -1,4 +1,4 @@
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, PromptComposeSection, Register } from 'claude-code'
 
 const HELD = { plugin: 'mcp-hold', key: 'held' } as const
 const SESSION_ALLOWED = { plugin: 'mcp-hold', key: 'sessionAllowed' } as const
@@ -79,12 +79,40 @@ export async function forget($: EngineInterface): Promise<string> {
   return `Cleared the stored allows for ${project}: ${stored.join(', ')}.`
 }
 
+// The model's input is untrusted: check it before it reaches the dialog.
+export async function allowTool($: EngineInterface, input: { server?: unknown }): Promise<string> {
+  const server = typeof input.server === 'string' ? input.server.trim() : ''
+  return server ? allow($, server) : 'allow_server needs a server name.'
+}
+
+export async function heldSection($: EngineInterface): Promise<PromptComposeSection | undefined> {
+  const held = (await $.state.get(HELD)).value ?? []
+  if (held.length === 0) return undefined
+  return {
+    id: 'mcp-hold:held',
+    scope: 'session',
+    text: `These MCP servers are held by mcp-hold: ${held.join(', ')}. If a task needs one, call allow_server with its name. The user approves it.`,
+  }
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await $.command.register({ name: 'mcp-allow', description: 'Connect an MCP server that mcp-hold holds', argumentHint: '[server]' })
     await $.command.register({ name: 'mcp-forget', description: 'Clear the MCP servers mcp-hold allows in this project' })
+    await $.tool.register({
+      name: 'allow_server',
+      description: 'Connect an MCP server that mcp-hold holds. The user picks the scope in a dialog or cancels.',
+      inputSchema: { type: 'object', properties: { server: { type: 'string', description: 'The held server name' } }, required: ['server'] },
+      isDeferred: false,
+    })
     return started
+  })
+  on('tool.run', { tool: 'mcp__mcp-hold__allow_server' }, async ($, e) => ({ result: await allowTool($, { server: e.server }) }))
+  on('prompt.compose', async ($, e, next) => {
+    const composed = await next(e)
+    const section = await heldSection($)
+    return section ? { ...composed, sections: [...composed.sections, section] } : composed
   })
   on('command.run', { command: 'mcp-allow' }, async ($, e) => ({ text: await allowCommand($, e.args) }))
   on('command.run', { command: 'mcp-forget' }, async $ => ({ text: await forget($) }))
