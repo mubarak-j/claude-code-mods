@@ -58,7 +58,7 @@ test('a precompute or subagent compaction starts no draft', async ($, on) => {
   const clock = mock.clock(on)
   let reads = 0
   on('session.root', () => (reads++, { value: '/p' }))
-  on('model.complete', () => ({ isAnswered: false as const, reason: 'api-error' as const, status: null, error: {} as never, usage: {} as never }))
+  on('model.complete', () => ({ isAnswered: false, reason: 'api-error' }) as never)
   const engine = { messages: transcript }
   on('session.compact', () => engine)
   for (const args of [{ trigger: 'precompute' }, { trigger: 'auto', agentId: 'a1' }] as const) {
