@@ -59,8 +59,12 @@ export async function enqueue($: $, root: string, ops: DraftOp[], source: string
   return (await entries($, root)).length
 }
 
+const moveFingerprint = (m: Omit<MoveItem, 'id' | 'moves'>) => `move:${m.kind}:${m.folder}`
+
 export async function enqueueMove($: $, root: string, item: Omit<MoveItem, 'id'>, now: number): Promise<number> {
   const all = await entries($, root)
+  const dropped = ((await $.store.get(droppedKey(root))) as string[] | undefined) ?? []
+  if (dropped.includes(moveFingerprint(item))) return all.length
   if (!all.some((e) => !('ops' in e.item) && e.item.folder === item.folder)) {
     const id = hash(`${item.kind}:${item.folder}:${now}`)
     await put($, root, `${dirOf(root)}/${stamp(now)}-${id}.json`, { ...item, id })
@@ -85,6 +89,9 @@ export async function dropItem($: $, root: string, id: string): Promise<void> {
   if ('ops' in found) {
     const seen = ((await $.store.get(droppedKey(root))) as string[] | undefined) ?? []
     await $.store.set(droppedKey(root), [...new Set([...seen, ...found.ops.map(fingerprint)])])
+  } else {
+    const seen = ((await $.store.get(droppedKey(root))) as string[] | undefined) ?? []
+    await $.store.set(droppedKey(root), [...new Set([...seen, moveFingerprint(found)])])
   }
   await removeItem($, root, id)
 }
