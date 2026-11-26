@@ -47,6 +47,13 @@ test('reads fenced and bare JSON, and rejects prose', () => {
   expect(parseReply('Here are the ops:\n```json\n[{"kind":"new"}]\n```\nDone.')?.length).toBe(1)
 })
 
+test('reads a reply whose note body holds a code block', () => {
+  const ops = JSON.stringify([{ kind: 'new', body: 'Run:\n```bash\nkubectl get pods\n```' }])
+  expect(parseReply(ops)?.length).toBe(1)
+  expect(parseReply('```json\n' + ops + '\n```')?.length).toBe(1)
+  expect(parseReply('Here are the ops:\n```json\n' + ops + '\n```\nDone.')?.length).toBe(1)
+})
+
 test('a failed or unreadable reply is failed', async () => {
   const p = { messages: [], agents: {} }
   expect(await draftPart(fake({ replies: [new Error('500')] }).$, p, ctx)).toBe('failed')

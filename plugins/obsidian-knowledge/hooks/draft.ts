@@ -59,13 +59,17 @@ export async function closestNotes($: $, v: Vault, notes: NoteFile[], partText: 
 
 export function parseReply(text: string): unknown[] | undefined {
   const t = text.trim()
-  const body = /```[a-z]*\n([\s\S]*?)\n?```/i.exec(t)?.[1] ?? t // The first fenced block, even after prose.
-  try {
-    const j: unknown = JSON.parse(body)
-    return Array.isArray(j) ? j : undefined
-  } catch {
-    return undefined
+  // Bare JSON first, then the outer fence: greedy to the last fence line, because note bodies can hold code blocks.
+  for (const body of [t, /```[a-z]*\n([\s\S]*)\n```/i.exec(t)?.[1]]) {
+    if (body === undefined) continue
+    try {
+      const j: unknown = JSON.parse(body)
+      if (Array.isArray(j)) return j
+    } catch {
+      // Try the next form.
+    }
   }
+  return undefined
 }
 
 export async function draftPart($: $, p: Part, ctx: DraftContext): Promise<unknown[] | 'failed'> {
