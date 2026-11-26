@@ -10,7 +10,7 @@ test('two drafts for one note fold into one item', async () => {
   const f = fake()
   await enqueue(f.$, '/v/C', [up('ArgoCD/Sync.md', 'a')], 's1', 1)
   expect(await enqueue(f.$, '/v/C', [up('ArgoCD/Sync.md', 'b')], 's2', 2)).toBe(1)
-  const [item] = await loadQueue(f.$, '/v/C')
+  const item = (await loadQueue(f.$, '/v/C'))[0]!
   expect(item.kind).toBe('update')
   expect((item as DraftItem).ops.length).toBe(2)
   expect((item as DraftItem).sources).toEqual(['s1', 's2'])
@@ -24,7 +24,7 @@ test('a new note targets its folder and title', () => {
 test('a dropped fact is remembered', async () => {
   const f = fake()
   await enqueue(f.$, '/v/C', [nw('ArgoCD', 'Sync')], 's1', 1)
-  const [item] = await loadQueue(f.$, '/v/C')
+  const item = (await loadQueue(f.$, '/v/C'))[0]!
   await dropItem(f.$, '/v/C', item.id)
   expect(await loadQueue(f.$, '/v/C')).toEqual([])
   expect(await isDropped(f.$, '/v/C', nw('ArgoCD', 'sync'))).toBe(true)

@@ -6,6 +6,11 @@
       "name": "mcp-hold",
       "source": "./plugins/mcp-hold",
       "description": "Holds every MCP server at session start; allow one per session or per project."
+    },
+    {
+      "name": "obsidian-knowledge",
+      "source": "./plugins/obsidian-knowledge",
+      "description": "Drafts Obsidian notes from what Claude learns in your sessions; you approve each one with /vault-review."
     }
   ]
 }

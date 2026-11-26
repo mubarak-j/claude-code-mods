@@ -7,7 +7,7 @@ import type { DraftItem, DraftOp } from '../types'
 
 const v = { root: '/v/C', vaultRoot: '/v' }
 const ev = [{ quote: 'q', source: 'Bash' }]
-const nwOp = (folder: string, title: string): DraftOp => ({ kind: 'new', folder, title, body: 'b', tags: [], related: [], evidence: ev })
+const nwOp = (folder: string, title: string): Extract<DraftOp, { kind: 'new' }> => ({ kind: 'new', folder, title, body: 'b', tags: [], related: [], evidence: ev })
 const upOp = (path: string, baseHash: string): DraftOp => ({ kind: 'update', path, addition: 'more', related: [], evidence: ev, baseHash })
 const nwItem = (folder: string, title: string): DraftItem => ({ id: 'i1', kind: 'new', target: `${folder}/${title}.md`, sources: ['2026-11-25 session s1'], ops: [nwOp(folder, title)] })
 const upItem = (path: string, baseHash: string, id = 'i2'): DraftItem => ({ id, kind: 'update', target: path, sources: ['s'], ops: [upOp(path, baseHash)] })
