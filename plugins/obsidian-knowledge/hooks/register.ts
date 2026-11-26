@@ -2,7 +2,8 @@ import type { EngineInterface, Register } from 'claude-code'
 import { IDLE_MS, type Options, capture, catchUp, pendingLine } from './capture'
 import { getCursor, loadQueue, setCursor } from './queue'
 import { PANE, renderPane, unavailable } from './pane'
-import { openVault } from './vault'
+import { formatHits, search, toolDescription, topics } from './search'
+import { listNotes, openVault } from './vault'
 
 type $ = EngineInterface
 
@@ -27,8 +28,23 @@ export const register: Register = (on, options) => {
     const line = pendingLine(await pending($, opts).catch(() => 0))
     if (line) $.ui.log(line)
     $.clock.after(0, () => void catchUp($, opts).catch(quiet))
+    const list = await openVault($, opts.vaultFolder).then((v) => listNotes($, v)).then(topics, () => [])
+    await $.tool
+      .register({
+        name: 'vault_search',
+        description: toolDescription(list),
+        inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+        isDeferred: false,
+      })
+      .catch(quiet) // Rejects until session.start, which registers it again.
     return started
   }).catch(($, e, next) => next(e))
+
+  on('tool.run', { tool: 'mcp__obsidian-knowledge__vault_search' }, async ($, e) => {
+    const query = typeof e.query === 'string' ? e.query.trim() : ''
+    if (!query) return { result: 'vault_search needs a query.' }
+    return { result: formatHits(await search($, await openVault($, opts.vaultFolder), query)) }
+  }).catch(() => ({ result: 'vault_search failed: the vault is unavailable.' }))
 
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) idle?.cancel()
