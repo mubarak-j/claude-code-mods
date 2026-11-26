@@ -15,13 +15,13 @@ The mod drafts notes at four points:
 - Before each compaction of the conversation.
 - After 15 minutes with no new turn.
 - When you run `/vault-capture`.
-- At session start, for earlier sessions of the same project that have messages the mod did not read yet.
+- At session start, for earlier sessions of the same project that have messages the mod did not read yet. Catch-up skips a session whose transcript changed in the last 20 minutes.
 
 Each draft is one Sonnet call. Its cost shows in `/cost`. If the new part of a session holds no tool calls, the mod makes no call.
 
 The mod drops an operation if its evidence quote is not in a tool result. It masks secret-shaped strings before it queues a draft.
 
-Pending drafts are JSON files in a hidden `.obsidian-knowledge/` folder inside the mod folder. The Claude Code plugin store lost writes across processes, so the mod does not use it.
+Pending drafts are JSON files in a hidden `.obsidian-knowledge/` folder inside the mod folder. The plugin store lost writes across processes, so drafts do not use it. Dropped facts and capture cursors stay in the plugin store.
 
 ## Review
 
@@ -33,7 +33,7 @@ Each concept note is one Markdown file with front matter, a body, an evidence li
 
 ## Folder growth
 
-If a folder holds more than 12 notes, the mod proposes subfolders. If three or more sibling folders share a subject, it proposes a parent folder. The tree never goes deeper than three levels. Each proposal is one item in the review queue.
+If a folder holds more than 12 notes, the mod proposes subfolders. If a note creates a new top-level folder, the mod checks the top-level folders. If three or more share a subject, it proposes a parent folder for them. The tree never goes deeper than three levels. Each proposal is one item in the review queue, and each one costs a Sonnet call.
 
 Moves use `mv -n`, so a move never overwrites a file. A move never changes a title, so links keep working. If you drop a folder proposal, the mod does not propose it again.
 
