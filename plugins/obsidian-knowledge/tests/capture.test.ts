@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import { fake } from './fake'
-import { capture, isExcluded } from '../hooks/capture'
+import { capture, catchUp, isExcluded } from '../hooks/capture'
 import type { Cursor } from '../types'
 
 const opts = { vaultFolder: '/v/Claude', exclude: ['~/private/'] }
@@ -83,4 +83,24 @@ test('a compaction hook returns before its draft ends', async ($, on) => {
 test('exclude matching ignores a trailing slash', () => {
   expect(isExcluded('/h/private', ['~/private/'], '/h')).toBe(true)
   expect(isExcluded('/h/privateer', ['~/private'], '/h')).toBe(false)
+})
+
+test('catch-up in a headless session makes no model call', async () => {
+  const f = fake({ surface: null, store: { cursors: { old: { uuid: null, project: '/start', transcriptPath: '/t/old.jsonl', seen: 1 } } }, files: { '/t/old.jsonl': '' }, replies: [reply] })
+  expect(await catchUp(f.$, opts)).toBe(0)
+  expect(f.prompts).toEqual([])
+})
+
+test('a headless session start stores no cursor', async ($, on) => {
+  mock.clock(on)
+  const writes: unknown[] = []
+  on('session.surface', () => ({ value: null }))
+  on('session.id', () => ({ value: 's9' }))
+  on('session.root', () => ({ value: '/p' }))
+  on('session.info', () => ({ value: { transcriptPath: '/t' } }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', (_, e) => (writes.push(e), { value: undefined }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: false })
+  expect(writes).toEqual([])
 })

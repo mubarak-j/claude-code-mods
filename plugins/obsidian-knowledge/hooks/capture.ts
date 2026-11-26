@@ -124,7 +124,7 @@ export function catchUp($: $, opts: Options): Promise<number> {
   return runSerial(async () => {
     const root = await $.session.root()
     const home = (await $.env.get('HOME')) ?? ''
-    if (isExcluded(root, opts.exclude, home)) return 0
+    if ((await $.session.surface()) === null || isExcluded(root, opts.exclude, home)) return 0
     let v: Vault
     try {
       v = await openVault($, opts.vaultFolder)

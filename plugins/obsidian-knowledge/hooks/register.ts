@@ -19,7 +19,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     const id = await $.session.id()
-    if (!(await getCursor($, id)))
+    if ((await $.session.surface()) !== null && !(await getCursor($, id)))
       await setCursor($, id, { uuid: null, project: await $.session.root(), transcriptPath: (await $.session.info()).transcriptPath, seen: await $.clock.now() })
     await $.command.register({ name: 'vault-capture', description: 'Draft vault notes from this session now' })
     await $.command.register({ name: 'vault-review', description: 'Review the vault drafts that wait for approval' })
