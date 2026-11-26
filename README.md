@@ -7,6 +7,7 @@ A Claude Code plugin marketplace for mods. A mod is a plugin built on the Claude
 | Mod | What it does |
 | --- | --- |
 | [mcp-hold](plugins/mcp-hold/README.md) | Holds every MCP server at session start. You allow a server for one session or for a project. |
+| [obsidian-knowledge](plugins/obsidian-knowledge/README.md) | Drafts Obsidian notes from what Claude learns in your sessions. You approve each note with `/vault-review`. |
 
 ## Install
 
