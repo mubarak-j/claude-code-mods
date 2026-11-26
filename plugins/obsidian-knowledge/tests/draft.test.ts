@@ -44,6 +44,7 @@ test('reads fenced and bare JSON, and rejects prose', () => {
   expect(parseReply('```json\n[]\n```')).toEqual([])
   expect(parseReply('[{"kind":"new"}]')?.length).toBe(1)
   expect(parseReply('Nothing to keep.')).toBeUndefined()
+  expect(parseReply('Here are the ops:\n```json\n[{"kind":"new"}]\n```\nDone.')?.length).toBe(1)
 })
 
 test('a failed or unreadable reply is failed', async () => {

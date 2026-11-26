@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import { fake } from './fake'
 import { afterWrite, applyMoves, checkMoves, proposeParent } from '../hooks/growth'
-import { loadQueue } from '../hooks/queue'
+import { enqueueMove, loadQueue } from '../hooks/queue'
 import { moveFile } from '../hooks/vault'
 import type { MoveItem } from '../types'
 
@@ -65,4 +65,16 @@ test('a move never overwrites or leaves the mod folder', async () => {
   expect(f.files.get('/v/C/B/x.md')).toBe('old')
   await expect(moveFile(f.$, v, 'A/x.md', '../out.md')).rejects.toThrow()
   await expect(moveFile(f.$, v, '../x.md', 'A/y.md')).rejects.toThrow()
+})
+
+test('a crowded folder makes no model call when a split is pending, dropped, or too deep', async () => {
+  const filesOf = (folder: string) => Object.fromEntries(notes(folder, 13).map((n) => [`/v/C/${n.path}`, '']))
+  const pending = fake({ files: filesOf('ArgoCD') })
+  await enqueueMove(pending.$, '/v/C', { kind: 'split', folder: 'ArgoCD', moves: [{ from: 'ArgoCD/N0.md', to: 'ArgoCD/S/N0.md' }] }, 1)
+  const dropped = fake({ files: filesOf('ArgoCD'), store: { 'dropped:/v/C': ['move:split:ArgoCD'] } })
+  const deep = fake({ files: filesOf('A/B/C') })
+  for (const f of [pending, dropped, deep]) {
+    await afterWrite(f.$, v, undefined, 2)
+    expect(f.prompts).toEqual([])
+  }
 })

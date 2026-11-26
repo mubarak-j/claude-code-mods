@@ -2,7 +2,7 @@ import type { EngineInterface } from 'claude-code'
 import type { Move, MoveItem } from '../types'
 import { MODEL } from './draft'
 import { refreshHubs } from './apply'
-import { enqueueMove } from './queue'
+import { droppedKey, enqueueMove, loadQueue, moveFingerprint } from './queue'
 import { type NoteFile, type Vault, folders, listNotes, moveFile, safeRel } from './vault'
 
 type $ = EngineInterface
@@ -62,13 +62,22 @@ export async function proposeParent($: $, siblings: string[], base: string, note
 }
 
 export async function applyMoves($: $, v: Vault, item: MoveItem): Promise<void> {
-  for (const m of item.moves) await moveFile($, v, m.from, m.to)
-  await refreshHubs($, v, [...new Set(item.moves.flatMap((m) => [dirOf(m.from), dirOf(m.to)]))].filter(Boolean))
+  try {
+    for (const m of item.moves) await moveFile($, v, m.from, m.to)
+  } finally {
+    // Hubs follow the moves already done, even when a later one fails.
+    await refreshHubs($, v, [...new Set(item.moves.flatMap((m) => [dirOf(m.from), dirOf(m.to)]))].filter(Boolean))
+  }
 }
 
 export async function afterWrite($: $, v: Vault, created: string | undefined, now: number): Promise<void> {
   const notes = await listNotes($, v)
-  for (const folder of crowded(notes)) {
+  const queue = await loadQueue($, v.root)
+  const dropped = ((await $.store.get(droppedKey(v.root))) as string[] | undefined) ?? []
+  // A split here would be refused anyway, so spare the model call.
+  const settled = (folder: string) =>
+    folder.split('/').length >= MAX_DEPTH || dropped.includes(moveFingerprint({ kind: 'split', folder })) || queue.some((i) => !('ops' in i) && i.folder === folder)
+  for (const folder of crowded(notes).filter((f) => !settled(f))) {
     const p = await proposeSplit($, folder, notes)
     if (p) await enqueueMove($, v.root, p, now)
   }

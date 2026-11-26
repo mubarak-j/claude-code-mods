@@ -15,6 +15,7 @@ async function realOf($: E, p: string): Promise<string> {
   for (;;) {
     try {
       const s = await $.fs.stat(cur, { resolve: true })
+      if (s.isLink && s.realPath === undefined) throw new Error(`dangling link: ${cur}`) // Deny: its target is unknown.
       const real = s.realPath ?? cur
       return rest ? join(real, rest) : real
     } catch (e) {
@@ -36,7 +37,7 @@ export async function openVault($: E, folder: string): Promise<Vault> {
 
 export function safeRel(rel: string): string | undefined {
   if (rel.startsWith('/') || rel.includes('\\')) return undefined
-  return rel.split('/').every((s) => s !== '' && s !== '..') ? rel : undefined
+  return rel.split('/').every((s) => s !== '' && s !== '.' && s !== '..') ? rel : undefined
 }
 
 export async function insidePath($: E, v: Vault, rel: string): Promise<string | undefined> {

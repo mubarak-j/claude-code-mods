@@ -124,6 +124,16 @@ test('approve of a move applies it and removes the item', async () => {
   expect(await loadQueue(f.$, V)).toEqual([])
 })
 
+test('a failed move says so, keeps the item, and updates hubs for moves done', async () => {
+  const f = fake({ files: { '/v/C/ArgoCD/A.md': '# A' } })
+  const moves = [{ from: 'ArgoCD/A.md', to: 'ArgoCD/S/A.md' }, { from: 'ArgoCD/Gone.md', to: 'ArgoCD/S/Gone.md' }]
+  await enqueueMove(f.$, V, { kind: 'split', folder: 'ArgoCD', moves }, 1)
+  await approveAt(f.$, V, await firstId(f))
+  expect(currentNotice()).toBe(FAILED)
+  expect((await loadQueue(f.$, V)).length).toBe(1)
+  expect(f.files.get('/v/C/ArgoCD/S/S.md')).toContain('- [[A]]')
+})
+
 test('edit saves the new body and leaves edit mode', async () => {
   const f = await queued('Sync')
   await saveEdit(f.$, V, await firstId(f), 'new body')

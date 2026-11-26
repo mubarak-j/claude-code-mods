@@ -47,3 +47,15 @@ test('moves a file into a new folder', async () => {
   expect(f.files.get('/v/Claude/ArgoCD/Sets/Sync.md')).toBe('x')
   expect(f.files.has('/v/Claude/ArgoCD/Sync.md')).toBe(false)
 })
+
+test('a dangling link is denied', async () => {
+  const f = fake({ files: { '/v/Claude/a.md': '' } })
+  const stat = f.$.fs.stat
+  f.$.fs.stat = (async (p: string, o?: { resolve: boolean }) => (p === '/v/Claude/dead' ? { kind: 'file', size: 0, mtimeMs: 0, isLink: true } : stat(p, o))) as typeof stat
+  await expect(insidePath(f.$, { root: '/v/Claude', vaultRoot: '/v' }, 'dead/x.md')).rejects.toThrow()
+})
+
+test('a dot segment is rejected', () => {
+  expect(safeRel('./x.md')).toBeUndefined()
+  expect(safeRel('a/./x.md')).toBeUndefined()
+})

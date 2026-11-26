@@ -120,3 +120,34 @@ test('a note titled after its folder gets an overview suffix', async () => {
   expect(f.files.has('/v/C/Redis/Redis overview.md')).toBe(true)
   expect(f.files.get('/v/C/Redis/Redis.md')).toContain('- [[Redis overview]]')
 })
+
+test('a new draft never overwrites the suffixed note it would become', async () => {
+  const f = fake({ files: { '/v/Mine/Sync.md': 'mine', '/v/C/ArgoCD/Sync (Claude).md': 'user edits' }, replies: ['{"addition":"merged"}'] })
+  await enqueue(f.$, '/v/C', [nwOp('ArgoCD', 'Sync')], 's', 1)
+  const item = (await loadQueue(f.$, '/v/C'))[0] as DraftItem
+  expect(await approve(f.$, v, item, '2026-11-25')).toBe('requeued')
+  expect(f.files.get('/v/C/ArgoCD/Sync (Claude).md')).toBe('user edits')
+  const [q] = (await loadQueue(f.$, '/v/C')) as DraftItem[]
+  expect(q).toMatchObject({ kind: 'update', target: 'ArgoCD/Sync (Claude).md' })
+})
+
+test('an update item that absorbed a new op writes its body', async () => {
+  const text = 'body\n'
+  const f = fake({ files: { '/v/C/ArgoCD/Sync.md': text } })
+  const item = upItem('ArgoCD/Sync.md', hash(text))
+  item.ops.push({ ...nwOp('ArgoCD', 'Sync'), body: 'folded fact' })
+  expect(await approve(f.$, v, item, '2026-11-25')).toBe('written')
+  const t = f.files.get('/v/C/ArgoCD/Sync.md')!
+  expect(t).toContain('more')
+  expect(t).toContain('folded fact')
+  expect(t).not.toContain('undefined')
+})
+
+test('a redraft masks secrets in the addition', async () => {
+  const f = fake({ files: { '/v/C/ArgoCD/Sync.md': 'edited' }, replies: ['{"addition":"use token=abc123secret"}'] })
+  await enqueue(f.$, '/v/C', [upOp('ArgoCD/Sync.md', 'stale')], 's', 1)
+  const item = (await loadQueue(f.$, '/v/C'))[0] as DraftItem
+  expect(await approve(f.$, v, item, '2026-11-25')).toBe('requeued')
+  const [q] = (await loadQueue(f.$, '/v/C')) as DraftItem[]
+  expect(q?.ops[0]).toMatchObject({ addition: 'use token=[masked]' })
+})

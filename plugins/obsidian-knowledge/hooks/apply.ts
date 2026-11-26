@@ -1,6 +1,6 @@
 import type { EngineInterface } from 'claude-code'
 import type { DraftItem, DraftOp, NewOp, UpdateOp } from '../types'
-import { MODEL } from './draft'
+import { MODEL, maskSecrets } from './draft'
 import { afterWrite } from './growth'
 import { applyUpdate, evidenceLine, renderHubBlock, renderNote, withHubBlock } from './note'
 import { removeItem, replaceItem } from './queue'
@@ -34,8 +34,9 @@ export async function redraft($: $, v: Vault, item: DraftItem, current: string, 
   if (!r.isAnswered) return undefined
   try {
     const body = /\{[\s\S]*\}/.exec(r.text)?.[0] ?? ''
-    const addition = (JSON.parse(body) as { addition?: unknown }).addition
-    if (typeof addition !== 'string' || !addition.trim()) return undefined
+    const raw = (JSON.parse(body) as { addition?: unknown }).addition
+    if (typeof raw !== 'string' || !raw.trim()) return undefined
+    const addition = maskSecrets(raw)
     const op: UpdateOp = { kind: 'update', path, addition, related: uniq(item.ops.flatMap((o) => o.related)), evidence: item.ops.flatMap((o) => o.evidence), baseHash: hash(current) }
     return { id: item.id, kind: 'update', target: path, ops: [op], sources: item.sources }
   } catch {
@@ -96,15 +97,18 @@ export async function approve($: $, v: Vault, item: DraftItem, today: string): P
       // A title equal to its folder name would read as the hub.
       const last = lastOf(folder)
       const title = last && [last, `${last} (Claude)`].some((t) => same(t, op.title)) ? `${op.title} overview` : op.title
-      const clash = notes.find((n) => !n.isHub && same(n.title, title))
-      if (clash) {
-        return await requeue($, v, item, await $.fs.read(await must($, v, clash.path)), clash.path)
-      }
       const taken = await outsideTitles($, v)
       for (const n of notes) if (n.isHub) taken.add(n.title.toLowerCase())
+      const name = uniqueTitle(title, taken)
+      const rel = folder ? `${folder}/${name}.md` : `${name}.md`
+      // Check the final title too, and never write a new note over a file that is there.
+      const clash = notes.find((n) => !n.isHub && (same(n.title, title) || same(n.title, name)))?.path ?? ((await $.fs.exists(await must($, v, rel))) ? rel : undefined)
+      if (clash) {
+        return await requeue($, v, item, await $.fs.read(await must($, v, clash)), clash)
+      }
       const top = folder.split('/')[0]
       if (top && !notes.some((n) => n.folder === top || n.folder.startsWith(`${top}/`))) created = top
-      await writeNew($, v, folder, uniqueTitle(title, taken), item.ops, item.sources, today)
+      await writeNew($, v, folder, name, item.ops, item.sources, today)
     } else {
       let path = item.target
       let abs = await must($, v, path)
@@ -120,7 +124,8 @@ export async function approve($: $, v: Vault, item: DraftItem, today: string): P
         const current = await $.fs.read(abs)
         if (hash(current) !== (item.ops[0] as UpdateOp).baseHash) return await requeue($, v, item, current, path)
         // shortcut: every op records the first source, upgrade if per-op sources matter.
-        const text = item.ops.reduce((t, o) => applyUpdate(t, o as UpdateOp, today, item.sources[0] ?? ''), current)
+        // A folded new op brings its body as the addition.
+        const text = item.ops.reduce((t, o) => applyUpdate(t, { ...(o as UpdateOp), addition: o.kind === 'new' ? o.body : o.addition }, today, item.sources[0] ?? ''), current)
         await $.fs.write(abs, text)
       } else {
         await writeNew($, v, folder, titleOf(path), item.ops, item.sources, today)

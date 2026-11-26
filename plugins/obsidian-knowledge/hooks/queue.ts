@@ -59,7 +59,7 @@ export async function enqueue($: $, root: string, ops: DraftOp[], source: string
   return (await entries($, root)).length
 }
 
-const moveFingerprint = (m: Omit<MoveItem, 'id' | 'moves'>) => `move:${m.kind}:${m.folder}`
+export const moveFingerprint = (m: Omit<MoveItem, 'id' | 'moves'>) => `move:${m.kind}:${m.folder}`
 
 export async function enqueueMove($: $, root: string, item: Omit<MoveItem, 'id'>, now: number): Promise<number> {
   const all = await entries($, root)

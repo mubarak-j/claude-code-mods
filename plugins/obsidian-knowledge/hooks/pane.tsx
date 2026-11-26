@@ -49,9 +49,13 @@ export async function approveAt($: $, vaultFolder: string, id: string): Promise<
     const r = await approve($, v, item, day(await $.clock.now()))
     notice = r === 'failed' ? FAILED : r === 'requeued' ? REQUEUED : ''
   } else {
-    await applyMoves($, v, item)
-    await removeItem($, v.root, item.id)
-    notice = ''
+    try {
+      await applyMoves($, v, item)
+      await removeItem($, v.root, item.id)
+      notice = ''
+    } catch {
+      notice = FAILED
+    }
   }
   await bump($)
 }
