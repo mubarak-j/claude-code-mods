@@ -10,6 +10,7 @@ export type Fake = {
   logs: string[]
   timers: { ms: number; fn: () => void; cancelled: boolean }[]
   prompts: string[]
+  requests: { maxTokens?: number; prompt: string | { text: string; cache?: boolean }[] }[]
   opened: string[]
   tools: { name: string; description: string }[]
   commands: string[]
@@ -40,6 +41,7 @@ export function fake(opts: {
     logs: [],
     timers: [],
     prompts: [],
+    requests: [],
     opened: [],
     tools: [],
     commands: [],
@@ -137,7 +139,8 @@ export function fake(opts: {
       root: async () => opts.root ?? '/start',
     },
     model: {
-      complete: async (r: { prompt: string | readonly { text: string }[] }) => {
+      complete: async (r: { maxTokens?: number; prompt: string | { text: string; cache?: boolean }[] }) => {
+        f.requests.push(r)
         f.prompts.push(typeof r.prompt === 'string' ? r.prompt : r.prompt.map((b) => b.text).join(''))
         const a = replies.shift()
         if (a === undefined || a instanceof Error) return { isAnswered: false, reason: 'api-error' }
