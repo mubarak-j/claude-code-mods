@@ -134,7 +134,9 @@ export function fake(opts: {
           list = list.slice(i + 1)
         }
         if (a?.last !== undefined) list = list.slice(-a.last)
-        return a?.after !== undefined ? list.slice(0, LIMIT) : list.slice(-LIMIT)
+        list = a?.after !== undefined ? list.slice(0, LIMIT) : list.slice(-LIMIT)
+        // The engine adds `uuid` only on a read that names `last` or `after`.
+        return a?.last !== undefined || a?.after !== undefined ? list : list.map(({ uuid: _, ...m }) => m)
       },
       info: async () => ({ transcriptPath: opts.transcriptPath ?? '/t/transcript.jsonl' }),
       surface: async () => (opts.surface === undefined ? 'terminal' : opts.surface),

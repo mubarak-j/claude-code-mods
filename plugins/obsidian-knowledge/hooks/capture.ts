@@ -2,7 +2,7 @@ import type { EngineInterface, SessionMessage } from 'claude-code'
 import type { Cursor, DraftOp } from '../types'
 import { checkOps, closestNotes, draftPart } from './draft'
 import { day } from './note'
-import { allCursors, enqueue, getCursor, isDropped, loadQueue, setCursor } from './queue'
+import { allCursors, enqueue, getCursor, isDropped, setCursor } from './queue'
 import { CHUNK_CHARS, type Part, afterUuid, corpus, fromJsonl, hasToolCalls, readSince, splitTurns, withAgents } from './transcript'
 import { type Vault, folders, hash, insidePath, listNotes, openVault } from './vault'
 
@@ -68,6 +68,21 @@ async function draftOps($: $, v: Vault, part: Part): Promise<DraftOp[] | 'failed
 
 const lastUuid = (ms: SessionMessage[]) => ms.findLast((m) => m.uuid)?.uuid
 
+// Rows after `after`; when the cursor is gone (compaction), the newest rows instead.
+async function readNew($: $, after: string | null): Promise<{ messages: SessionMessage[]; last: string | null }> {
+  const r = await readSince($, after)
+  if (r !== 'gone') return r
+  const all = await readSince($, null)
+  return all === 'gone' ? { messages: [], last: null } : all
+}
+
+// The rows handed to session.compact carry a handle, not a uuid, so read the range now, before the transcript is cut.
+export async function captureCompaction($: $, opts: Options): Promise<void> {
+  const cursor = await getCursor($, await $.session.id())
+  const { messages } = await readNew($, cursor?.uuid ?? null)
+  $.clock.after(0, () => void capture($, opts, messages).catch(() => undefined))
+}
+
 export function capture($: $, opts: Options, given?: SessionMessage[]): Promise<CaptureResult> {
   return runSerial(async () => {
     const root = await $.session.root()
@@ -93,13 +108,7 @@ export function capture($: $, opts: Options, given?: SessionMessage[]): Promise<
         messages = afterUuid(given, cursor.uuid)
         last = lastUuid(given)
       } else {
-        const r = await readSince($, cursor.uuid)
-        if (r === 'gone') {
-          const r2 = await $.session.messages({ last: 1 })
-          await move('deny' in r2 ? undefined : r2.at(-1)?.uuid)
-          return { drafted: 0, pending: (await loadQueue($, v.root)).length }
-        }
-        ;({ messages, last } = r)
+        ;({ messages, last } = await readNew($, cursor.uuid))
       }
       const part = await withAgents($, messages)
       if (!hasToolCalls(part)) {

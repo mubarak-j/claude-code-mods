@@ -1,5 +1,5 @@
 import type { EngineInterface, Register } from 'claude-code'
-import { IDLE_MS, type Options, capture, catchUp, pendingLine } from './capture'
+import { IDLE_MS, type Options, capture, captureCompaction, catchUp, pendingLine } from './capture'
 import { getCursor, loadQueue, setCursor } from './queue'
 import { PANE, renderPane, unavailable } from './pane'
 import { formatHits, search, toolDescription, topics } from './search'
@@ -19,15 +19,7 @@ export const register: Register = (on, options) => {
   const opts: Options = { vaultFolder: String(options.vaultFolder ?? ''), exclude: (options.exclude as readonly string[] | undefined) ?? [] }
 
   on('session.start', async ($, e, next) => {
-    const started = await next(e)
-    const id = await $.session.id()
-    if ((await $.session.surface()) !== null && !(await getCursor($, id)))
-      await setCursor($, id, { uuid: null, project: await $.session.root(), transcriptPath: (await $.session.info()).transcriptPath, seen: await $.clock.now() })
-    await $.command.register({ name: 'vault-capture', description: 'Draft vault notes from this session now' })
-    await $.command.register({ name: 'vault-review', description: 'Review the vault drafts that wait for approval' })
-    const line = pendingLine(await pending($, opts).catch(() => 0))
-    if (line) $.ui.log(line)
-    $.clock.after(0, () => void catchUp($, opts).catch(quiet))
+    // Registered before next(e) so the tool is listed by turn one.
     const list = await openVault($, opts.vaultFolder).then((v) => listNotes($, v)).then(topics, () => [])
     await $.tool
       .register({
@@ -36,7 +28,20 @@ export const register: Register = (on, options) => {
         inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
         isDeferred: false,
       })
-      .catch(quiet) // Rejects until session.start, which registers it again.
+      .catch(quiet)
+    const started = await next(e)
+    try {
+      const id = await $.session.id()
+      if ((await $.session.surface()) !== null && !(await getCursor($, id)))
+        await setCursor($, id, { uuid: null, project: await $.session.root(), transcriptPath: (await $.session.info()).transcriptPath, seen: await $.clock.now() })
+      await $.command.register({ name: 'vault-capture', description: 'Draft vault notes from this session now' })
+      await $.command.register({ name: 'vault-review', description: 'Review the vault drafts that wait for approval' })
+      const line = pendingLine(await pending($, opts).catch(() => 0))
+      if (line) $.ui.log(line)
+      $.clock.after(0, () => void catchUp($, opts).catch(quiet))
+    } catch {
+      // next(e) already ran; the catch below would run it a second time.
+    }
     return started
   }).catch(($, e, next) => next(e))
 
@@ -60,7 +65,7 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e))
 
   on('session.compact', async ($, e, next) => {
-    if (e.trigger !== 'precompute' && e.agentId === undefined) $.clock.after(0, () => void capture($, opts, [...e.messages]).catch(quiet))
+    if (e.trigger !== 'precompute' && e.agentId === undefined) await captureCompaction($, opts)
     return next(e)
   }).catch(($, e, next) => next(e))
 

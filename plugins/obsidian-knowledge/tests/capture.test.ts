@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import { fake } from './fake'
-import { capture, catchUp, isExcluded } from '../hooks/capture'
+import { capture, captureCompaction, catchUp, isExcluded, runSerial } from '../hooks/capture'
 import type { Cursor } from '../types'
 
 const opts = { vaultFolder: '/v/Claude', exclude: ['~/private/'] }
@@ -41,10 +41,41 @@ test('a part with no tool calls makes no model call', async () => {
   expect(f.prompts).toEqual([])
 })
 
-test('a cursor gone after compaction moves to the newest message', async () => {
-  const f = fake({ messages: transcript, session: 's1', store: cursor('old') })
+test('a cursor gone after compaction drafts the newest messages and moves to the last', async () => {
+  const f = fake({ messages: transcript, replies: [reply], session: 's1', store: cursor('old') })
+  expect(await capture(f.$, opts)).toEqual({ drafted: 1, pending: 1 })
+  expect(cursorOf(f)).toBe('u2')
+})
+
+const later = [
+  { uuid: 'u3', role: 'user' as const, text: 'check health', toolUses: [] },
+  { uuid: 'u4', role: 'assistant' as const, text: '', toolUses: [use('Degraded health')] },
+]
+const reply2 = JSON.stringify([{ kind: 'new', folder: '', title: 'Health', body: 'b', tags: [], related: [], evidence: [{ quote: 'Degraded health', source: 'Bash' }] }])
+const partOf = (prompt: string | undefined) => prompt?.split('Transcript part:')[1] ?? ''
+
+test('a second checkpoint drafts only the messages after the first', async () => {
+  const messages = [...transcript]
+  const f = fake({ messages, replies: [reply, reply2], session: 's1', store: cursor(null) })
   await capture(f.$, opts)
   expect(cursorOf(f)).toBe('u2')
+  messages.push(...later)
+  expect(await capture(f.$, opts)).toEqual({ drafted: 1, pending: 2 })
+  expect(partOf(f.prompts[1])).toContain('Degraded health')
+  expect(partOf(f.prompts[1])).not.toContain('OutOfSync')
+  expect(cursorOf(f)).toBe('u4')
+})
+
+test('a compaction reads the range before it is cut and moves the cursor', async () => {
+  const messages = [...transcript, ...later]
+  const f = fake({ messages, replies: [reply2], session: 's1', store: cursor('u2') })
+  await captureCompaction(f.$, opts)
+  messages.splice(0, messages.length) // the transcript is cut after the hook returns
+  for (const t of f.timers) t.fn()
+  await runSerial(async () => undefined) // waits for the scheduled draft
+  expect(partOf(f.prompts[0])).toContain('Degraded health')
+  expect(partOf(f.prompts[0])).not.toContain('OutOfSync')
+  expect(cursorOf(f)).toBe('u4')
 })
 
 test('an unreadable vault writes the permission line once', async () => {
@@ -73,6 +104,9 @@ test('a compaction hook returns before its draft ends', async ($, on) => {
   const clock = mock.clock(on)
   let reads = 0
   on('session.root', () => (reads++, { value: '/p' }))
+  on('session.id', () => ({ value: 's1' }))
+  on('store.get', () => ({ value: undefined }))
+  on('session.messages', () => ({ value: transcript }))
   on('session.compact', () => ({ messages: transcript }))
   expect(await $.session.compact({ trigger: 'manual', messages: transcript } as never)).toEqual({ messages: transcript })
   expect(reads).toBe(0) // the hook resolved before the draft started

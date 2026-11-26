@@ -9,7 +9,7 @@ export const CHUNK_CHARS = 300_000
 // Reads on from `after` in pages (one read holds at most 4096 rows). 'gone' when the cursor is no longer in the transcript.
 export async function readSince($: $, after: string | null): Promise<{ messages: SessionMessage[]; last: string | null } | 'gone'> {
   if (after === null) {
-    const r = await $.session.messages()
+    const r = await $.session.messages({ last: 4096 }) // Only a read that names `last` or `after` carries uuids.
     if ('deny' in r) return { messages: [], last: null }
     return { messages: r, last: r.at(-1)?.uuid ?? null }
   }
