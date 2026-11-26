@@ -9,7 +9,7 @@
       "type": "directory",
       "title": "Vault folder",
       "description": "The folder in your Obsidian vault where the mod reads and writes notes.",
-      "default": "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ibotta-work/Claude"
+      "default": "~/Obsidian/Claude"
     },
     "exclude": {
       "type": "string",

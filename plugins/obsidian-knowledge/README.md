@@ -109,7 +109,7 @@ The topic list goes in the tool description, not in the system prompt, because a
 
 Set these in `/config`.
 
-- `vaultFolder` is the folder the mod owns. The default is `ibotta-work/Claude` in an iCloud Obsidian vault.
+- `vaultFolder` is the folder the mod owns. The default is `~/Obsidian/Claude`. Point it at a folder inside your own vault, for example `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/<vault>/Claude` for an iCloud vault.
 - `exclude` is a list of project folders. If a session starts under one, the mod captures nothing. Search still works.
 
 ## Commands
