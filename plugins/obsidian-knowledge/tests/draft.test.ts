@@ -71,3 +71,14 @@ test('closest notes rank by key words and skip hubs', async () => {
   const r = await closestNotes(f.$, { root: '/v', vaultRoot: '/' }, notes, 'rolling rolling sync behavior')
   expect(r.map((n) => n.path)).toEqual(['ArgoCD/Sync.md'])
 })
+
+test('drops an op whose quote is empty or too short', () => {
+  for (const q of ['', '   ', 'app']) expect(checkOps([nw({ evidence: ev(q) })], 'OutOfSync app', ctx)).toEqual([])
+})
+
+test('masks a token in source, tags and related', () => {
+  const tok = 'AKIAABCDEFGHIJKLMNOP'
+  const [op] = checkOps([nw({ tags: [tok], related: [tok], evidence: [{ quote: 'OutOfSync app', source: `Bash: ${tok}` }] })], 'OutOfSync app', ctx)
+  expect(op?.evidence[0]?.source).toBe('Bash: [masked]')
+  expect(op).toMatchObject({ tags: ['[masked]'], related: ['[masked]'] })
+})

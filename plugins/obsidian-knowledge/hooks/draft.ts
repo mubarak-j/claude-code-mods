@@ -99,16 +99,16 @@ export function checkOps(raw: unknown[], corpusText: string, ctx: DraftContext):
     if (!o || typeof o !== 'object') continue
     const ev = o.evidence
     if (!Array.isArray(ev) || ev.length === 0 || !ev.every(isEvidence)) continue
-    if (!strs(o.related) || !ev.every((e) => hay.includes(normalize(e.quote)))) continue
-    const evidence = ev.map((e) => ({ quote: maskSecrets(e.quote), source: e.source }))
-    const related = o.related
+    if (!strs(o.related) || !ev.every((e) => normalize(e.quote).length >= 8 && hay.includes(normalize(e.quote)))) continue
+    const evidence = ev.map((e) => ({ quote: maskSecrets(e.quote), source: maskSecrets(e.source) }))
+    const related = o.related.map(maskSecrets)
     if (o.kind === 'new') {
       const { folder, title, body, tags } = o
       if (!isStr(folder) || !isStr(title) || !isStr(body) || !strs(tags)) continue
       if (!(folder === '' || ctx.tree.includes(folder) || (folder !== '..' && !folder.includes('/') && safeRel(folder)))) continue
       const t = fileTitle(maskSecrets(title))
       if (!t) continue
-      out.push({ kind: 'new', folder, title: t, body: maskSecrets(body), tags, related, evidence })
+      out.push({ kind: 'new', folder, title: t, body: maskSecrets(body), tags: tags.map(maskSecrets), related, evidence })
     } else if (o.kind === 'update') {
       const { path, addition } = o
       if (!isStr(path) || !isStr(addition) || !path.endsWith('.md') || safeRel(path) === undefined) continue
