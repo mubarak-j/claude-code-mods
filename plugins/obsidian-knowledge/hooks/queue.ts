@@ -93,9 +93,13 @@ export async function isDropped($: $, root: string, op: DraftOp): Promise<boolea
   return (((await $.store.get(droppedKey(root))) as string[] | undefined) ?? []).includes(fingerprint(op))
 }
 
-export const allCursors = async ($: $): Promise<Record<string, Cursor>> => ((await $.store.get(CURSORS)) as Record<string, Cursor> | undefined) ?? {}
+export async function allCursors($: $): Promise<Record<string, Cursor>> {
+  return ((await $.store.get(CURSORS)) as Record<string, Cursor> | undefined) ?? {}
+}
 
-export const getCursor = async ($: $, session: string): Promise<Cursor | undefined> => (await allCursors($))[session]
+export async function getCursor($: $, session: string): Promise<Cursor | undefined> {
+  return (await allCursors($))[session]
+}
 
 export async function setCursor($: $, session: string, c: Cursor): Promise<void> {
   const all = await allCursors($) // Re-read right before the write to keep the lost-update window small.
