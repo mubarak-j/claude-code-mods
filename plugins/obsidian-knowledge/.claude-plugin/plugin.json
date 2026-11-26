@@ -1,0 +1,22 @@
+{
+  "name": "obsidian-knowledge",
+  "version": "0.1.0",
+  "description": "Drafts Obsidian notes from what Claude learns in your sessions; you approve each one with /vault-review.",
+  "license": "Apache-2.0",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "vaultFolder": {
+      "type": "directory",
+      "title": "Vault folder",
+      "description": "The folder in your Obsidian vault where the mod reads and writes notes.",
+      "default": "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ibotta-work/Claude"
+    },
+    "exclude": {
+      "type": "string",
+      "multiple": true,
+      "title": "Excluded projects",
+      "description": "Project folders the mod never captures notes from.",
+      "default": []
+    }
+  }
+}
