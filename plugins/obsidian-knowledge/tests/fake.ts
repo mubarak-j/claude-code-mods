@@ -93,6 +93,10 @@ export function fake(opts: {
           f.files.delete(a)
           return { exitCode: 0, stdout: '', stderr: '' }
         }
+        if (cmd === 'rm' && a) {
+          f.files.delete(a)
+          return { exitCode: 0, stdout: '', stderr: '' }
+        }
         return { exitCode: 1, stdout: '', stderr: `unsupported: ${argv.join(' ')}` }
       },
     },
