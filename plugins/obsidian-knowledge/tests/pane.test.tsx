@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 import { fake } from './fake'
-import { FAILED, REQUEUED, approveAt, dropAt, itemView, review, saveEdit } from '../hooks/pane'
+import { FAILED, REQUEUED, advance, approveAt, currentNotice, dropAt, itemView, review, saveEdit, startEdit } from '../hooks/pane'
 import { enqueue, enqueueMove, loadQueue } from '../hooks/queue'
 import { read } from 'claude-code'
 
@@ -13,8 +13,9 @@ const PANE = {
 
 const V = '/v/C'
 const nw = (title: string) => ({ kind: 'new' as const, folder: 'ArgoCD', title, body: 'old body', tags: [], related: [], evidence: [{ quote: 'OutOfSync', source: 'Bash' }] })
+const firstId = async (f: { $: any }) => ((await loadQueue(f.$, V))[0] as { id: string }).id
 const queued = async (...titles: string[]) => {
-  const f = fake({ files: { '/v/.obsidian/x': '' }, now: Date.UTC(2026, 10, 25) })
+  const f = fake({ files: { '/v/.obsidian/x': '' }, now: Date.UTC(2026, 10, 25), replies: ['{"addition":"merged"}'] })
   for (const [i, t] of titles.entries()) await enqueue(f.$, V, [nw(t)], 's1', i + 1)
   return f
 }
@@ -53,7 +54,7 @@ test('an empty queue says so, on every surface', async ($, on) => {
 
 test('approve writes the note and leaves the next item', async () => {
   const f = await queued('Sync', 'Health')
-  await approveAt(f.$, V, 0)
+  await approveAt(f.$, V, await firstId(f))
   expect(f.files.has('/v/C/ArgoCD/Sync.md')).toBe(true)
   const left = await loadQueue(f.$, V)
   expect(left.map((i) => itemView(i).heading)).toEqual(['[new] ArgoCD/Health.md'])
@@ -62,8 +63,8 @@ test('approve writes the note and leaves the next item', async () => {
 test('approve of a changed note says a new draft waits', async () => {
   const f = await queued('Sync')
   f.files.set('/v/C/ArgoCD/Sync.md', 'user text')
-  await approveAt(f.$, V, 0)
-  expect(REQUEUED).toBe('The note changed. A new draft is in the queue.')
+  await approveAt(f.$, V, await firstId(f))
+  expect(currentNotice()).toBe(REQUEUED)
   expect(f.files.get('/v/C/ArgoCD/Sync.md')).toBe('user text')
   expect((await loadQueue(f.$, V)).length).toBe(1)
 })
@@ -72,14 +73,35 @@ test('a failed approve keeps the item', async () => {
   const f = await queued('Sync')
   const denied = fake({ files: Object.fromEntries(f.files), denied: '/v/C/ArgoCD', now: 1 })
   await enqueue(denied.$, V, [nw('Sync')], 's1', 1)
-  await approveAt(denied.$, V, 0)
+  await approveAt(denied.$, V, await firstId(denied))
   expect((await loadQueue(denied.$, V)).length).toBe(1)
-  expect(FAILED).toBe('Approve failed. The item stays in the queue.')
+  expect(denied.files.has('/v/C/ArgoCD/Sync.md')).toBe(false)
+  expect(currentNotice()).toBe(FAILED)
+})
+
+test('next and edit clear the notice', async () => {
+  const f = await queued('Sync')
+  f.files.set('/v/C/ArgoCD/Sync.md', 'user text')
+  await approveAt(f.$, V, await firstId(f))
+  expect(currentNotice()).toBe(REQUEUED)
+  await advance(f.$, 0)
+  expect(currentNotice()).toBe('')
+  await approveAt(f.$, V, await firstId(f))
+  await startEdit(f.$)
+  expect(currentNotice()).toBe('')
+})
+
+test('an action keys on the item id, not its place', async () => {
+  const f = await queued('Sync', 'Health')
+  const [first] = await loadQueue(f.$, V)
+  await dropAt(f.$, V, (first as { id: string }).id)
+  await dropAt(f.$, V, (first as { id: string }).id)
+  expect((await loadQueue(f.$, V)).map((i) => itemView(i).heading)).toEqual(['[new] ArgoCD/Health.md'])
 })
 
 test('drop removes the item and remembers its fact', async () => {
   const f = await queued('Sync')
-  await dropAt(f.$, V, 0)
+  await dropAt(f.$, V, await firstId(f))
   expect(await loadQueue(f.$, V)).toEqual([])
   expect((f.store.get(`dropped:${V}`) as string[]).length).toBe(1)
 })
@@ -88,7 +110,7 @@ test('drop of a move is remembered and not proposed again', async () => {
   const f = fake()
   const split = { kind: 'split' as const, folder: 'ArgoCD', moves: [{ from: 'ArgoCD/A.md', to: 'ArgoCD/S/A.md' }] }
   await enqueueMove(f.$, V, split, 1)
-  await dropAt(f.$, V, 0)
+  await dropAt(f.$, V, await firstId(f))
   expect(f.store.get(`dropped:${V}`)).toEqual(['move:split:ArgoCD'])
   expect(await enqueueMove(f.$, V, split, 2)).toBe(0)
   expect(await loadQueue(f.$, V)).toEqual([])
@@ -97,14 +119,14 @@ test('drop of a move is remembered and not proposed again', async () => {
 test('approve of a move applies it and removes the item', async () => {
   const f = fake({ files: { '/v/C/ArgoCD/A.md': '# A' } })
   await enqueueMove(f.$, V, { kind: 'split', folder: 'ArgoCD', moves: [{ from: 'ArgoCD/A.md', to: 'ArgoCD/S/A.md' }] }, 1)
-  await approveAt(f.$, V, 0)
+  await approveAt(f.$, V, await firstId(f))
   expect(f.files.has('/v/C/ArgoCD/S/A.md')).toBe(true)
   expect(await loadQueue(f.$, V)).toEqual([])
 })
 
 test('edit saves the new body and leaves edit mode', async () => {
   const f = await queued('Sync')
-  await saveEdit(f.$, V, 0, 'new body')
+  await saveEdit(f.$, V, await firstId(f), 'new body')
   const [item] = await loadQueue(f.$, V)
   expect(itemView(item as never).text).toContain('new body')
   expect((await read(f.$, review)).editing).toBe(false)

@@ -1,7 +1,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 import { IDLE_MS, type Options, capture, catchUp, pendingLine } from './capture'
 import { getCursor, loadQueue, setCursor } from './queue'
-import { PANE, renderPane } from './pane'
+import { PANE, renderPane, unavailable } from './pane'
 import { openVault } from './vault'
 
 type $ = EngineInterface
@@ -58,5 +58,5 @@ export const register: Register = (on, options) => {
     return { text: 'Vault review opened.' }
   }).catch(() => ({ text: 'vault-review failed.' }))
 
-  on('ui.render', { component: 'Pane', requestId: PANE }, ($, e) => renderPane($, e, opts.vaultFolder))
+  on('ui.render', { component: 'Pane', requestId: PANE }, ($, e) => renderPane($, e, opts.vaultFolder)).catch(($, e) => unavailable($, e))
 }
