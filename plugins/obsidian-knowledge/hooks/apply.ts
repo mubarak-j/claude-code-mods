@@ -1,6 +1,7 @@
 import type { EngineInterface } from 'claude-code'
 import type { DraftItem, DraftOp, NewOp, UpdateOp } from '../types'
 import { MODEL } from './draft'
+import { afterWrite } from './growth'
 import { applyUpdate, evidenceLine, renderHubBlock, renderNote, withHubBlock } from './note'
 import { removeItem, replaceItem } from './queue'
 import { type NoteFile, type Vault, hash, insidePath, listNotes, outsideTitles, uniqueTitle } from './vault'
@@ -85,6 +86,7 @@ async function writeNew($: $, v: Vault, folder: string, title: string, ops: Draf
 
 export async function approve($: $, v: Vault, item: DraftItem, today: string): Promise<'written' | 'requeued' | 'failed'> {
   let folder: string
+  let created: string | undefined
   try {
     const notes = await listNotes($, v)
     if (item.kind === 'new') {
@@ -100,6 +102,8 @@ export async function approve($: $, v: Vault, item: DraftItem, today: string): P
       }
       const taken = await outsideTitles($, v)
       for (const n of notes) if (n.isHub) taken.add(n.title.toLowerCase())
+      const top = folder.split('/')[0]
+      if (top && !notes.some((n) => n.folder === top || n.folder.startsWith(`${top}/`))) created = top
       await writeNew($, v, folder, uniqueTitle(title, taken), item.ops, item.sources, today)
     } else {
       let path = item.target
@@ -128,5 +132,6 @@ export async function approve($: $, v: Vault, item: DraftItem, today: string): P
   }
   // The note is written and the item gone, so a hub failure must not report failure; the next approval rebuilds the hub.
   await refreshHubs($, v, [folder]).catch(() => {})
+  await afterWrite($, v, created, await $.clock.now()).catch(() => {})
   return 'written'
 }

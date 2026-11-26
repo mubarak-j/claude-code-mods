@@ -98,9 +98,11 @@ async function run($: E, argv: string[]) {
 }
 
 export async function moveFile($: E, v: Vault, from: string, to: string): Promise<void> {
-  const dest = join(v.root, to)
+  const src = await insidePath($, v, from)
+  const dest = await insidePath($, v, to)
+  if (src === undefined || dest === undefined) throw new Error(`outside the mod folder: ${src === undefined ? from : to}`)
   await run($, ['mkdir', '-p', parent(dest)])
-  await run($, ['mv', join(v.root, from), dest])
+  await run($, ['mv', '-n', '--', src, dest]) // -n: never overwrite an existing note
 }
 
 export const folders = (notes: NoteFile[]) => [...new Set(notes.map((n) => n.folder).filter(Boolean))].sort()

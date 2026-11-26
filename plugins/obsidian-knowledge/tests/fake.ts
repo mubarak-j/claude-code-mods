@@ -88,9 +88,12 @@ export function fake(opts: {
     },
     process: {
       run: async (argv: readonly string[]) => {
-        const [cmd, a, b] = argv
+        const [cmd, ...rest] = argv
+        const noClobber = cmd === 'mv' && rest[0] === '-n'
+        const [a, b] = rest.filter((x) => x !== '-n' && x !== '--')
         if (cmd === 'mkdir') return { exitCode: 0, stdout: '', stderr: '' }
         if (cmd === 'mv' && a && b && f.files.has(a)) {
+          if (noClobber && f.files.has(b)) return { exitCode: 0, stdout: '', stderr: '' }
           f.files.set(b, f.files.get(a)!)
           f.files.delete(a)
           return { exitCode: 0, stdout: '', stderr: '' }
