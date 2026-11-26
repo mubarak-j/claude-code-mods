@@ -103,3 +103,20 @@ test('hubs list notes and subfolders, and keep text outside the markers', async 
   expect(a).toContain('mine')
   expect(a).not.toContain('old')
 })
+
+test('folded new ops keep every body', async () => {
+  const f = fake()
+  await enqueue(f.$, '/v/C', [{ ...nwOp('ArgoCD', 'Sync'), body: 'first fact' }, { ...nwOp('ArgoCD', 'Sync'), body: 'second fact' }], 's', 1)
+  const item = (await loadQueue(f.$, '/v/C'))[0] as DraftItem
+  await approve(f.$, v, item, '2026-11-25')
+  const t = f.files.get('/v/C/ArgoCD/Sync.md')!
+  expect(t).toContain('first fact')
+  expect(t).toContain('second fact')
+})
+
+test('a note titled after its folder gets an overview suffix', async () => {
+  const f = fake()
+  expect(await approve(f.$, v, nwItem('Redis', 'Redis'), '2026-11-25')).toBe('written')
+  expect(f.files.has('/v/C/Redis/Redis overview.md')).toBe(true)
+  expect(f.files.get('/v/C/Redis/Redis.md')).toContain('- [[Redis overview]]')
+})

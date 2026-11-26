@@ -69,7 +69,6 @@ export async function refreshHubs($: $, v: Vault, folders: string[]): Promise<vo
 }
 
 async function writeNew($: $, v: Vault, folder: string, title: string, ops: DraftOp[], sources: string[], today: string) {
-  const first = ops.find((o): o is NewOp => o.kind === 'new')
   const note = renderNote({
     title,
     topic: folder,
@@ -77,7 +76,7 @@ async function writeNew($: $, v: Vault, folder: string, title: string, ops: Draf
     updated: today,
     sources,
     tags: uniq(ops.flatMap((o) => (o.kind === 'new' ? o.tags : []))),
-    body: first ? first.body : ops.map((o) => (o as UpdateOp).addition).join('\n\n'),
+    body: ops.map((o) => (o.kind === 'new' ? o.body : o.addition)).join('\n\n'),
     evidence: ops.flatMap((o) => o.evidence.map((e) => evidenceLine(e, today))),
     related: uniq(ops.flatMap((o) => o.related)),
   })
@@ -92,18 +91,21 @@ export async function approve($: $, v: Vault, item: DraftItem, today: string): P
       const op = item.ops[0] as NewOp
       folder = op.folder
       if (folder) await must($, v, folder)
-      const clash = notes.find((n) => !n.isHub && same(n.title, op.title))
+      // A title equal to its folder name would read as the hub.
+      const last = lastOf(folder)
+      const title = last && [last, `${last} (Claude)`].some((t) => same(t, op.title)) ? `${op.title} overview` : op.title
+      const clash = notes.find((n) => !n.isHub && same(n.title, title))
       if (clash) {
         return await requeue($, v, item, await $.fs.read(await must($, v, clash.path)), clash.path)
       }
       const taken = await outsideTitles($, v)
       for (const n of notes) if (n.isHub) taken.add(n.title.toLowerCase())
-      await writeNew($, v, folder, uniqueTitle(op.title, taken), item.ops, item.sources, today)
+      await writeNew($, v, folder, uniqueTitle(title, taken), item.ops, item.sources, today)
     } else {
       let path = item.target
       let abs = await must($, v, path)
       if (!(await $.fs.exists(abs))) {
-        const moved = notes.find((n) => same(n.title, titleOf(path)))
+        const moved = notes.find((n) => !n.isHub && same(n.title, titleOf(path)))
         if (moved) {
           path = moved.path
           abs = await must($, v, path)
