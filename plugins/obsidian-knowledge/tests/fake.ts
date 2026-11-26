@@ -121,10 +121,15 @@ export function fake(opts: {
     },
     session: {
       messages: async (a?: { agentId?: string; last?: number; after?: string }) => {
-        let list = a?.agentId ? (opts.agents?.[a.agentId] ?? []) : (opts.messages ?? [])
-        if (a?.after !== undefined) list = list.slice(list.findIndex((m) => m.uuid === a.after) + 1)
+        if (a?.agentId && !opts.agents?.[a.agentId]) return { deny: 'gone' }
+        let list = a?.agentId ? opts.agents![a.agentId]! : (opts.messages ?? [])
+        if (a?.after !== undefined) {
+          const i = list.findIndex((m) => m.uuid === a.after)
+          if (i < 0) return { deny: 'gone' }
+          list = list.slice(i + 1)
+        }
         if (a?.last !== undefined) list = list.slice(-a.last)
-        return list.slice(-LIMIT)
+        return a?.after !== undefined ? list.slice(0, LIMIT) : list.slice(-LIMIT)
       },
       info: async () => ({ transcriptPath: opts.transcriptPath ?? '/t/transcript.jsonl' }),
       surface: async () => (opts.surface === undefined ? 'terminal' : opts.surface),
