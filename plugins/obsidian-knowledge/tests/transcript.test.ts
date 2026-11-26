@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import { fake } from './fake'
-import { corpus, readSince, splitTurns, withAgents } from '../hooks/transcript'
+import { TRANSCRIPT } from './fixtures/transcript'
+import { corpus, fromJsonl, readSince, splitTurns, withAgents } from '../hooks/transcript'
 
 const msg = (uuid: string, role: 'user' | 'assistant', text: string, extra = {}) => ({ uuid, role, text, toolUses: [], ...extra })
 
@@ -33,4 +34,11 @@ test('splits only at turn boundaries', () => {
 test('the corpus holds tool output, normalized', () => {
   const use = { tool_use_id: 't1', tool: 'Bash', input: { command: 'ls' }, text: 'a\n  b' }
   expect(corpus({ messages: [msg('u', 'assistant', 'chat', { toolUses: [use] })], agents: {} })).toBe('a b')
+})
+
+test('parses the transcript file of the pinned version', () => {
+  const messages = fromJsonl(TRANSCRIPT)
+  expect(messages.some((m) => m.toolUses.length > 0)).toBe(true)
+  expect(messages.some((m) => (m.toolResults ?? []).length > 0)).toBe(true)
+  expect(messages.every((m) => typeof m.uuid === 'string')).toBe(true)
 })
